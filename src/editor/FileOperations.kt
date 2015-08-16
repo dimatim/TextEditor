@@ -1,7 +1,4 @@
-package editor
 
-import currentFile
-import document
 import java.io.FileWriter
 import java.nio.charset.Charset
 import javax.swing.JFileChooser
