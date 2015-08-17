@@ -1,10 +1,11 @@
 import java.awt.*
-import java.awt.event.ActionEvent
-import java.awt.event.KeyEvent
-import java.awt.event.KeyListener
+import java.awt.event.*
 import java.io.File
+import java.util.*
 import java.util.regex.Pattern
 import javax.swing.*
+import javax.swing.event.ListSelectionEvent
+import javax.swing.event.ListSelectionListener
 import javax.swing.text
 import javax.swing.text.*
 
@@ -86,24 +87,26 @@ fun setupKeyBindings(editor: MyTextPane) {
     })
 }
 
-fun showPopup(comp: Component, rectangle: Rectangle) {
+fun showPopup(comp: MyTextPane, rectangle: Rectangle) {
     val dialog = JDialog()
     dialog.layout = BorderLayout();
     dialog.isUndecorated = true;
-    dialog.add(buildContextualMenu(dialog, rectangle.javaClass))
-    dialog.location = Point(rectangle.x, rectangle.y + 25)  //FIXME needs universal coords
+    dialog.add(buildContextualMenu(comp, dialog, rectangle.javaClass))
+    dialog.location = Point(frame.locationOnScreen.x + rectangle.x, frame.locationOnScreen.y + rectangle.y + 75)  //FIXME needs universal coords
     dialog.isVisible = true
     dialog.pack()
-    /*val popup = buildContextualMenu(rectangle.javaClass)
-    popup.show(comp, rectangle.x, rectangle.y + 25)*/
 }
 
-fun<T> buildContextualMenu(dialog: JDialog, c: Class<T>): JScrollPane {
-    val list = JList((c.methods map  { it.name }).toTypedArray())
+fun<T> buildContextualMenu(editor: MyTextPane, dialog: JDialog, c: Class<T>): JScrollPane {
+    val data = HashMap<Pair<String, String>, List<String>>()
+    c.methods forEach { data.put(Pair(it.name, it.returnType.simpleName), it.parameterTypes map { it.simpleName }) }
+    val dataset = data.toList() map { it.first } sortBy { it.first }
+    val list = JList((data map  { it.key.first + it.value.join(separator = ",", prefix = "(", postfix = ") : ") + it.key.second } sortBy { it }).toTypedArray())
     list.selectionMode = ListSelectionModel.SINGLE_SELECTION;
     list.layoutOrientation = JList.VERTICAL;
     val listScroller = JScrollPane(list);
-    listScroller.preferredSize = Dimension(250, 200);
+    listScroller.maximumSize = Dimension(450, 200);
+    var methodCandidate: String
     list.addKeyListener(object : KeyListener {
         override fun keyTyped(e: KeyEvent?) {
 
@@ -111,11 +114,26 @@ fun<T> buildContextualMenu(dialog: JDialog, c: Class<T>): JScrollPane {
 
         override fun keyPressed(e: KeyEvent?) {
             if (e?.keyCode == KeyEvent.VK_ESCAPE) dialog.isVisible = false
+            if (e?.keyCode == KeyEvent.VK_ENTER) {
+                document.insertString(editor.caretPosition, methodCandidate, null)
+                dialog.isVisible = false
+            }
+
         }
 
         override fun keyReleased(e: KeyEvent?) {
         }
     })
+    list.addFocusListener(object : FocusListener {
+        override fun focusLost(e: FocusEvent?) {
+            dialog.isVisible = false
+        }
+
+        override fun focusGained(e: FocusEvent?) {
+        }
+
+    })
+    list.addListSelectionListener({ e: ListSelectionEvent? -> methodCandidate = dataset.get(e?.lastIndex!!).first })
     return listScroller
 }
 
