@@ -1,13 +1,15 @@
 import java.awt.*
 import java.awt.event.*
 import java.io.File
-import java.util.*
+import java.util.HashMap
 import java.util.regex.Pattern
 import javax.swing.*
 import javax.swing.event.ListSelectionEvent
-import javax.swing.event.ListSelectionListener
 import javax.swing.text
-import javax.swing.text.*
+import javax.swing.text.AttributeSet
+import javax.swing.text.BadLocationException
+import javax.swing.text.DefaultStyledDocument
+import javax.swing.text.StyleConstants
 
 /**
  * Created by Dima on 15-Aug-15.
@@ -18,9 +20,19 @@ val fontColor = Color.decode("#D1D1D1")
 
 var frame = JFrame("Text Editor")
 val document = MyDocument()
+val editor = MyTextPane()
 var currentFile: File? = null
 
 fun main(args: Array<String>) {
+    Thread(Runnable {
+        run {
+            val start = System.currentTimeMillis()
+            buildClassMap()
+            println("load time = ${System.currentTimeMillis() - start}ms")
+        }
+    }).start()
+
+    println("building gui")
     buildGUI()
 }
 
@@ -64,14 +76,13 @@ fun setupButton(name: String, func: () -> Unit): JMenuItem {
 }
 
 fun setupEditorPane(): MyTextPane {
-    val editorPane = MyTextPane()
-    setupKeyBindings(editorPane)
-    editorPane.background = backgroundColor
-    editorPane.foreground = fontColor
-    editorPane.caretColor = Color.WHITE
-    editorPane.font = Font("Monospaced", Font.PLAIN, 14)
-    editorPane.styledDocument = setupDocument()
-    return editorPane
+    setupKeyBindings()
+    editor.background = backgroundColor
+    editor.foreground = fontColor
+    editor.caretColor = Color.WHITE
+    editor.font = Font("Monospaced", Font.PLAIN, 14)
+    editor.styledDocument = setupDocument()
+    return editor
 }
 
 private fun setupDocument(): DefaultStyledDocument {
@@ -79,25 +90,46 @@ private fun setupDocument(): DefaultStyledDocument {
     return document
 }
 
-fun setupKeyBindings(editor: MyTextPane) {
+/**
+ * Used to get methods for the current variable when pressing Ctrl+SPACE on a dot (ex: foo.)
+ */
+fun getVarName(): String {
+    val offsets = document.getParagraphOffsets(editor.caretPosition)
+    val line = document.getText(offsets.first, offsets.second)
+    var i = editor.caretPosition - offsets.first - 1
+    var value = StringBuilder()
+    while (i > 0 && line.get(--i).isLetterOrDigit()) {
+        value.append(line.get(i))
+    }
+    return value.reverse().toString()
+}
+
+fun shouldSuggestMethods() :Boolean = document.getText(editor.caretPosition - 1, 1) == "."
+
+fun setupKeyBindings() {
     editor.inputMap.put(KeyStroke.getKeyStroke("control SPACE"), object : AbstractAction() {
         override fun actionPerformed(e: ActionEvent?) {
-            showPopup(editor, editor.modelToView(editor.caretPosition))
+            if (shouldSuggestMethods()) {
+                val varName = getVarName()
+                if (isValidVar(varName))
+                    showPopup(getClassForVar(varName)!!)
+            }
         }
     })
 }
 
-fun showPopup(comp: MyTextPane, rectangle: Rectangle) {
+fun showPopup(c: Class<*>) {
+    val rectangle = editor.modelToView(editor.caretPosition)
     val dialog = JDialog()
     dialog.layout = BorderLayout();
     dialog.isUndecorated = true;
-    dialog.add(buildContextualMenu(comp, dialog, rectangle.javaClass))
+    dialog.add(buildContextualMenu(dialog, c))
     dialog.location = Point(frame.locationOnScreen.x + rectangle.x, frame.locationOnScreen.y + rectangle.y + 75)  //FIXME needs universal coords
     dialog.isVisible = true
     dialog.pack()
 }
 
-fun<T> buildContextualMenu(editor: MyTextPane, dialog: JDialog, c: Class<T>): JScrollPane {
+fun buildContextualMenu(dialog: JDialog, c: Class<*>): JScrollPane {
     val data = HashMap<Pair<String, String>, List<String>>()
     c.methods forEach { data.put(Pair(it.name, it.returnType.simpleName), it.parameterTypes map { it.simpleName }) }
     val dataset = data.toList() map { it.first } sortBy { it.first }
@@ -152,29 +184,36 @@ private fun printFontList() {
     }
 }
 
+
 class MyDocument : DefaultStyledDocument() {
 
     override fun insertString(offset: Int, str: String?, a: AttributeSet?) {
         super.insertString(offset, str, a)
-        if (str?.contains('\n') ?: false)
+        if (str?.contains('\n') ?: false) {
             applyStyles(offset, str ?: "")
-        else
-            applyStyles(getParagraphElement(offset))
+            extractClassInfo(getText(offset, str?.length() ?: 0))
+        } else {
+            val offsets = getParagraphOffsets(offset)
+            applyStyles(offsets.first, offsets.second)
+            extractClassInfo(getText(offsets.first, offsets.second))
+        }
     }
 
-    override fun remove(offs: Int, len: Int) {
-        super.remove(offs, len)
-        applyStyles(getParagraphElement(offs))
+    override fun remove(offset: Int, len: Int) {
+        super.remove(offset, len)
+        val offsets = getParagraphOffsets(offset)
+        applyStyles(offsets.first, offsets.second)
     }
 
     private fun applyStyles(offset: Int, str: String) {
         applyStyles(offset, str.length())
     }
 
-    private fun applyStyles(paragraphElement: Element?) {
+    public fun getParagraphOffsets(offset: Int): Pair<Int, Int> {
+        val paragraphElement = getParagraphElement(offset)
         var start = paragraphElement?.startOffset ?: 0
         val length = (paragraphElement?.endOffset ?: 0) - start
-        applyStyles(start, length)
+        return start to length
     }
 
     private fun applyStyles(start: Int, length: Int) {
@@ -197,7 +236,6 @@ class MyDocument : DefaultStyledDocument() {
             mark("keywords")
         }
     }
-
 }
 
 class MyTextPane : JTextPane() {
