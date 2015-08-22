@@ -35,6 +35,10 @@ fun buildClassMap() {
         classMap.put(c.simpleName, c)
 }
 
-fun getClassForVar(variable: String): Class<*>? = variableMap.get(variable)
+fun getClassForVar(variable: String): Class<*> = variableMap.get(variable)?: Any::class.java
+
+fun getMatchingClasses(prefix : String) : List<Class<*>> = classMap.filterKeys { it.startsWith(prefix) } map { it.getValue()}
 
 fun isValidVar(varName : String) : Boolean = variableMap.containsKey(varName)
+
+fun isValidType(varName : String) : Boolean = classMap.containsKey(varName)

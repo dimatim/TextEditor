@@ -17,7 +17,7 @@ fun openFile() {
     if (returnVal == JFileChooser.APPROVE_OPTION) {
         currentFile = chooser.selectedFile;
         document.remove(0, document.length)
-        val content = currentFile?.readText(Charset.defaultCharset())
+        val content = currentFile?.readText(Charset.defaultCharset())?.replaceAll(System.getProperty("line.separator"), "\n")
         document.insertString(0, content, null)
     } else {
         println("Open command cancelled by user.");
