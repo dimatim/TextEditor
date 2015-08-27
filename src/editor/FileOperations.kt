@@ -1,4 +1,4 @@
-
+import java.io.File
 import java.io.FileWriter
 import java.nio.charset.Charset
 import javax.swing.JFileChooser
@@ -24,6 +24,19 @@ fun openFile() {
     }
 }
 
+fun chooseDir(): String {
+    val chooser = JFileChooser()
+    chooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+    val returnVal = chooser.showOpenDialog(null);
+    var path = ""
+    if (returnVal == JFileChooser.APPROVE_OPTION) {
+        path = chooser.selectedFile.path;
+    } else {
+        println("Open command cancelled by user.");
+    }
+    return path
+}
+
 fun saveFile() {
     val content = document.getText(0, document.length)
     if (currentFile != null) {
@@ -40,7 +53,16 @@ fun saveFile() {
     }
 }
 
-private fun writeToFile(content : String) {
+fun savePath(path: String) {
+    val file = File("config/config.txt")
+    if (!file.exists()) {
+        file.parentFile.mkdir()
+        file.createNewFile()
+    }
+    file.writeText("$path\\jre\\lib\n$path\\jre\\lib\\ext")
+}
+
+private fun writeToFile(content: String) {
     val fooWriter = FileWriter(currentFile, false);
     fooWriter.write(content);
     fooWriter.close();

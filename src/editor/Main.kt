@@ -16,6 +16,19 @@ val editor = MyTextPane()
 var currentFile: File? = null
 
 fun main(args: Array<String>) {
+    if (File("config/config.txt").exists()) {
+        startEditor()
+    } else {
+        val path = System.getenv("JAVA_HOME")
+        if (path != null) {
+            savePath(path)
+            startEditor()
+        } else
+            showPathDialog()
+    }
+}
+
+fun startEditor() {
     Thread(Runnable {
         run {
             val start = System.currentTimeMillis()
@@ -23,7 +36,6 @@ fun main(args: Array<String>) {
             println("load time = ${System.currentTimeMillis() - start}ms")
         }
     }).start()
-
     println("building gui")
     buildGUI()
 }
@@ -58,7 +70,8 @@ private fun setupDocument(): DefaultStyledDocument {
 /**
  * Used to get methods for the current variable when pressing Ctrl+SPACE on a dot (ex: foo.)
  */
-fun getVarName(): String {//TODO merge with getCurrentToken
+fun getVarName(): String {
+    //TODO merge with getCurrentToken
     val offsets = document.getParagraphOffsets(editor.caretPosition)
     val line = document.getText(offsets.first, offsets.second)
     var i = editor.caretPosition - offsets.first - 1
@@ -69,7 +82,7 @@ fun getVarName(): String {//TODO merge with getCurrentToken
     return value.reverse().toString()
 }
 
-fun shouldSuggestTypes() : Boolean {
+fun shouldSuggestTypes(): Boolean {
     var i = editor.caretPosition - 1
     while (i >= 0 && document.getText(i, 1).charAt(0).isLetterOrDigit()) {
         i -= 1;

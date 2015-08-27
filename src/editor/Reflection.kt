@@ -1,8 +1,14 @@
 import org.reflections.Reflections
 import org.reflections.scanners.SubTypesScanner
-import java.util.HashMap
+import org.reflections.scanners.TypeAnnotationsScanner
+import org.reflections.util.ClasspathHelper
+import org.reflections.util.ConfigurationBuilder
+import java.io.File
+import java.lang.instrument.Instrumentation
+import java.net.URL
+import java.net.URLClassLoader
+import java.util.*
 import java.util.regex.Pattern
-import kotlin.reflect.jvm.java
 
 /**
  * Created by Dima on 19-Aug-15.
@@ -24,21 +30,38 @@ fun extractClassInfo(string: String) {
     val matcher = pattern.matcher(string)
     while (matcher.find()) {
         val result = matcher.group().split(":")
-            variableMap.put(result[0].trim(), classMap.get(result[1].trim()))
+        variableMap.put(result[0].trim(), classMap.get(result[1].trim()))
     }
 }
 
 fun buildClassMap() {
-    val reflections = Reflections("java", SubTypesScanner(false));
+    val loader = URLClassLoader.newInstance(loadJars(), ClassLoader.getSystemClassLoader())
+    val reflections = Reflections("java", SubTypesScanner(false), loader);
     val allClasses = reflections.getSubTypesOf(Any::class.java).filter { it.modifiers and ACC_PUBLIC == ACC_PUBLIC && !it.isMemberClass }
     for (c in allClasses)
         classMap.put(c.simpleName, c)
 }
 
-fun getClassForVar(variable: String): Class<*> = variableMap.get(variable)?: Any::class.java
+fun loadJars(): Array<URL> {
+    val folder = File("config/config.txt")
+    var matchingFiles: Array<File>
+    val urls = arrayListOf<URL>()
+    for (l in folder.readLines(Charsets.UTF_8)) {
+        matchingFiles = File(l).listFiles({ file: File, name: String -> name.contains(".jar") })//TODO problematic - returns null?
+        for (f in matchingFiles) {
+            urls.add(URL("file:" + f.canonicalPath))
+            println("file:" + f.canonicalPath)
+        }
+        //urls.add(URL("file:C:\\Program Files\\Java\\jdk1.7.0_51\\jre\\lib\\rt.jar"))
+    }
+    println("loaded ${urls.size()} libs")
+    return urls.toTypedArray()
+}
 
-fun getMatchingClasses(prefix : String) : List<Class<*>> = classMap.filterKeys { it.startsWith(prefix) } map { it.getValue()}
+fun getClassForVar(variable: String): Class<*> = variableMap.get(variable) ?: Any::class.java
 
-fun isValidVar(varName : String) : Boolean = variableMap.containsKey(varName)
+fun getMatchingClasses(prefix: String): List<Class<*>> = classMap.filterKeys { it.startsWith(prefix) } map { it.getValue() }
 
-fun isValidType(varName : String) : Boolean = classMap.containsKey(varName)
+fun isValidVar(varName: String): Boolean = variableMap.containsKey(varName)
+
+fun isValidType(varName: String): Boolean = classMap.containsKey(varName)
