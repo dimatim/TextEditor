@@ -1,6 +1,8 @@
 # TextEditor
 Text editor with suggestion capabilities (Written in Kotlin)
 
+<a href="http://imgur.com/k3dYDTM"><img src="http://i.imgur.com/k3dYDTM.png" title="TextEditor" /></a>
+
 <p>To run from Intellij, modify the Reflection.kt <i>buildClassMap</i> function as follows:</p>
 <ol>
 <li> Uncomment the following section(IDE code)</li>
