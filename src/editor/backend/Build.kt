@@ -1,11 +1,12 @@
+package editor.backend
+
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
-
 /**
  * Created by Dima on 16-Aug-15.
  */
-fun printLines(name : String, ins : InputStream) {
+private fun printLines(name : String, ins : InputStream) {
     val input = BufferedReader(InputStreamReader(ins));
     var line = input.readLine()
     while (line != null) {
@@ -14,7 +15,7 @@ fun printLines(name : String, ins : InputStream) {
     }
 }
 
-fun runProcessAndWait(command : String) {
+private fun runProcessAndWait(command : String) {
     val pro = Runtime.getRuntime().exec(command);
     printLines("$command stdout:", pro.inputStream)
     printLines("$command stderr:", pro.errorStream);
@@ -22,7 +23,7 @@ fun runProcessAndWait(command : String) {
     println(command + " exitValue() " + pro.exitValue());
 }
 
-fun runProcess(command : String) {
+private fun runProcess(command : String) {
     Runtime.getRuntime().exec(command);
 }
 

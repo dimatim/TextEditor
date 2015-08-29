@@ -1,3 +1,6 @@
+package editor.visual
+
+import editor.backend.*
 import java.awt.Dimension
 import java.awt.event.ActionEvent
 import javax.swing.JMenu
@@ -14,14 +17,14 @@ fun buildMenuBar(): JMenuBar {
     return bar
 }
 
-fun setupMenu(name: String, map: Map<String, () -> Unit>): JMenu {
+private fun setupMenu(name: String, map: Map<String, () -> Unit>): JMenu {
     val menu = JMenu(name)
     for (e in map)
         menu.add(setupButton(e.key, e.value))
     return menu
 }
 
-fun setupButton(name: String, func: () -> Unit): JMenuItem {
+private fun setupButton(name: String, func: () -> Unit): JMenuItem {
     val button = JMenuItem(name)
     button.preferredSize = Dimension(200, 25)
     button.addActionListener({ e: ActionEvent ->

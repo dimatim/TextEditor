@@ -1,10 +1,9 @@
+package editor.backend
+
+import CONFIG_PATH
 import org.reflections.Reflections
 import org.reflections.scanners.SubTypesScanner
-import org.reflections.scanners.TypeAnnotationsScanner
-import org.reflections.util.ClasspathHelper
-import org.reflections.util.ConfigurationBuilder
 import java.io.File
-import java.lang.instrument.Instrumentation
 import java.net.URL
 import java.net.URLClassLoader
 import java.util.*
@@ -35,15 +34,20 @@ fun extractClassInfo(string: String) {
 }
 
 fun buildClassMap() {
+    //for IDE testing
     val loader = URLClassLoader.newInstance(loadJars(), ClassLoader.getSystemClassLoader())
     val reflections = Reflections("java", SubTypesScanner(false), loader);
     val allClasses = reflections.getSubTypesOf(Any::class.java).filter { it.modifiers and ACC_PUBLIC == ACC_PUBLIC && !it.isMemberClass }
+
+    //for Jar testing
+    //val allClasses = ClassAgent.getInstrumentation().allLoadedClasses.filter { it.modifiers and ACC_PUBLIC == ACC_PUBLIC && !it.isMemberClass }
+    println("found ${allClasses.size()} classes")
     for (c in allClasses)
         classMap.put(c.simpleName, c)
 }
 
-fun loadJars(): Array<URL> {
-    val folder = File("config/config.txt")
+private fun loadJars(): Array<URL> {
+    val folder = File(CONFIG_PATH)
     var matchingFiles: Array<File>
     val urls = arrayListOf<URL>()
     for (l in folder.readLines(Charsets.UTF_8)) {
@@ -52,7 +56,6 @@ fun loadJars(): Array<URL> {
             urls.add(URL("file:" + f.canonicalPath))
             println("file:" + f.canonicalPath)
         }
-        //urls.add(URL("file:C:\\Program Files\\Java\\jdk1.7.0_51\\jre\\lib\\rt.jar"))
     }
     println("loaded ${urls.size()} libs")
     return urls.toTypedArray()

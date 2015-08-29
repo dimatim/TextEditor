@@ -1,3 +1,5 @@
+import editor.backend.extractClassInfo
+import editor.backend.isValidType
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import javax.swing.text.AttributeSet
@@ -52,11 +54,13 @@ class EditorDocument : DefaultStyledDocument() {
             matcher = pattern.matcher(content)
             while (matcher.find()) {
                 var off = 0;
-                if (type.equals("error")) {
+                if (type.equals(H_ERROR)) {
                     val result = matcher.group().split(":")
                     if (!isValidType(result[1].trim()))
                         off = result[0].length() + 1
                     else continue
+                } else if (type.equals(H_FUN_NAME)) {
+                    off = 4
                 }
                 setCharacterAttributes(start + matcher.start() + off, matcher.end() - matcher.start() - off, getStyle(type), false)
             }
@@ -65,9 +69,9 @@ class EditorDocument : DefaultStyledDocument() {
     }
 
     fun getCurrentToken(): String {
-        val offsets = document.getParagraphOffsets(editor.caretPosition)
+        val offsets = document.getParagraphOffsets(editorPane.caretPosition)
         val line = document.getText(offsets.first, offsets.second)
-        var i = editor.caretPosition - offsets.first - 1
+        var i = editorPane.caretPosition - offsets.first - 1
         var value = StringBuilder()
         while (i >= 0 && line.get(i).isLetterOrDigit()) {
             value.append(line.get(i))

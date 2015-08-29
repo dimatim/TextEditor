@@ -1,3 +1,8 @@
+package editor.backend
+
+import CONFIG_PATH
+import currentFile
+import document
 import java.io.File
 import java.io.FileWriter
 import java.nio.charset.Charset
@@ -17,7 +22,7 @@ fun openFile() {
     if (returnVal == JFileChooser.APPROVE_OPTION) {
         currentFile = chooser.selectedFile;
         document.remove(0, document.length)
-        val content = currentFile?.readText(Charset.defaultCharset())?.replaceAll(System.getProperty("line.separator"), "\n")
+        val content = currentFile?.readText(Charset.defaultCharset())?.replace(System.getProperty("line.separator"), "\n")
         document.insertString(0, content, null)
     } else {
         println("Open command cancelled by user.");
@@ -54,7 +59,7 @@ fun saveFile() {
 }
 
 fun savePath(path: String) {
-    val file = File("config/config.txt")
+    val file = File(CONFIG_PATH)
     if (!file.exists()) {
         file.parentFile.mkdir()
         file.createNewFile()
