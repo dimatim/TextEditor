@@ -1,3 +1,5 @@
+package editor
+
 import java.awt.Color
 
 /**
@@ -5,6 +7,11 @@ import java.awt.Color
  */
 //config
 val CONFIG_PATH = "config/config.txt"
+
+//token types
+val T_VAR = 1
+val T_TYPE = 2
+val T_METHOD = 3
 
 //colors
 val backgroundColor = Color.decode("#242424")

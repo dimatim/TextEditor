@@ -1,8 +1,6 @@
 package editor.backend
 
-import CONFIG_PATH
-import currentFile
-import document
+import editor.*
 import java.io.File
 import java.io.FileWriter
 import java.nio.charset.Charset

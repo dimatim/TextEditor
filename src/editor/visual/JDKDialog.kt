@@ -1,7 +1,7 @@
 package editor.visual
 
 import editor.backend.*
-import startEditor
+import editor.startEditor
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.event.ActionEvent

@@ -1,6 +1,6 @@
 package editor.backend
 
-import CONFIG_PATH
+import editor.CONFIG_PATH
 import org.reflections.Reflections
 import org.reflections.scanners.SubTypesScanner
 import java.io.File

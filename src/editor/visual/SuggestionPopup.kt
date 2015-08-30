@@ -1,14 +1,7 @@
 package editor.visual
 
-import document
-import editor.backend.getClassForVar
-import editor.backend.getMatchingClasses
-import editor.backend.isValidVar
-import editorPane
-import frame
-import getVarName
-import shouldSuggestMethods
-import shouldSuggestTypes
+import editor.backend.*
+import editor.*
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Point
@@ -24,18 +17,47 @@ import javax.swing.*
  */
 private var dialog: JDialog? = null
 
-private var popupShown = false
+var popupShown = false
 
 var suggestionComplete: Boolean = false
     get() = if (popupShown) {
         popupShown = false
+        backup = Pair(listOf(), arrayOf())
         true
     } else false
+
+private var backup: Pair<List<String>, Array<String>> = Pair(listOf(), arrayOf())
+
+var currentField: Pair<String, Int> = ("" to 1)
+
+private var currentClassList: Pair<List<String>, Array<String>> = backup
+    get() = if (!popupShown) {
+        backup = Pair(listOf(), arrayOf())
+        backup
+    } else {
+        backup =
+                if (currentField.first.isNotBlank()) {
+                    when (currentField.second) {
+                        T_METHOD -> {
+                            if (isValidVar(currentField.first))
+                                getData(getClassForVar(currentField.first))
+                            else
+                                Pair(listOf(), arrayOf())
+                        }
+                        T_TYPE -> getData(getMatchingClasses(currentField.first))
+                        T_VAR -> Pair<List<String>, Array<String>>(listOf(), arrayOf())//TODO var suggestion
+                        else -> Pair<List<String>, Array<String>>(listOf(), arrayOf())
+                    }
+                } else Pair<List<String>, Array<String>>(listOf(), arrayOf())
+        backup
+    }
 
 private var addSpace: String = ""
     get() = if (shouldSuggestTypes()) " " else ""
 
 val popupKeyListener: KeyListener = object : KeyListener {
+    var caretPos: Int = 0
+
     override fun keyPressed(e: KeyEvent?) {
         if (e?.keyCode == KeyEvent.VK_ESCAPE) dialog?.isVisible = false
         else if (e?.keyCode == KeyEvent.VK_UP && dialog?.isVisible ?: false) {
@@ -48,15 +70,33 @@ val popupKeyListener: KeyListener = object : KeyListener {
             val completionMatch = listSet.get(list.selectedIndex)
             document.insertString(editorPane.caretPosition, completionMatch.substring(document.getCurrentToken().length()) /*+ addSpace*/, null)
             dialog?.isVisible = false
-            popupShown = true
         }
+        caretPos = editorPane.caretPosition
     }
 
     override fun keyTyped(e: KeyEvent?) {
-
+        if (dialog?.isVisible ?: false && e?.keyChar?.isLetterOrDigit() ?: false) {
+            updatePopup(e?.keyChar)
+        }
     }
 
     override fun keyReleased(e: KeyEvent?) {
+        when (e?.keyCode) {
+            KeyEvent.VK_CONTROL,
+            KeyEvent.VK_SPACE,
+            KeyEvent.VK_UP,
+            KeyEvent.VK_DOWN -> {
+                if (dialog?.isVisible ?: false ) editorPane.caretPosition = caretPos
+            }
+            KeyEvent.VK_LEFT,
+            KeyEvent.VK_RIGHT -> {
+                if (dialog?.isVisible ?: false ) updatePopup()
+            }
+            else -> {
+                if (dialog?.isVisible ?: false && e?.keyChar?.isLetterOrDigit() ?: false) updatePopup()
+            }
+        }
+        println("caret position = ${editorPane.caretPosition}, ${document.getParagraphOffsets(editorPane.caretPosition)}")
     }
 }
 
@@ -64,28 +104,17 @@ private val listModel = DefaultListModel<String>()
 private var listSet = listOf("")
 private var list = JList(listModel)
 
-private fun getClassList(): List<Class<*>> {
-    val prefix = document.getCurrentToken()
-    val classes = getMatchingClasses(prefix)
-    return classes
-}
-
 private fun updateList() {
-    val clsList: List<Class<*>> = if (shouldSuggestMethods()) {
-        val varName = getVarName()
-        if (isValidVar(varName))
-            listOf(getClassForVar(getVarName()))
-        else
-            listOf<Class<*>>()
-    } else if (shouldSuggestTypes()) {
-        getClassList()
-    } else listOf<Class<*>>()
-    val (dataSet, listArr) = if (clsList.size() == 1) getData(clsList.get(0)) else getData(clsList)
-    listModel.clear()
-    listArr forEach { listModel.addElement(it) }
-    listSet = dataSet
-    list.selectedIndex = 0
-    list.ensureIndexIsVisible(0)
+    val cl = currentClassList
+    if (cl.first.isNotEmpty()) {
+        val (dataSet, listArr) = cl
+        listModel.clear()
+        listArr forEach { listModel.addElement(it) }
+        listSet = dataSet
+        list.selectedIndex = 0
+        list.ensureIndexIsVisible(0)
+    }
+    dialog?.isVisible = cl.first.isNotEmpty()
 }
 
 private fun setupDialog(): JDialog {
@@ -116,10 +145,16 @@ private fun buildContextualMenu(dialog: JDialog): JScrollPane {
     return listScroller
 }
 
+fun updatePopup(char: Char? = null) {
+    currentField = getActiveToken(char)
+    updateList()
+}
+
 fun showPopup() {
     if (dialog == null)
         dialog = setupDialog()
-    updateList()
+    popupShown = true
+    updatePopup()
     val rectangle = editorPane.modelToView(editorPane.caretPosition)
     dialog?.location = Point(frame.locationOnScreen.x + rectangle.x, frame.locationOnScreen.y + rectangle.y + 75)  //FIXME needs universal coords
     dialog?.isVisible = true
@@ -143,3 +178,31 @@ private fun getData(c: List<Class<*>>): Pair<List<String>, Array<String>> {
     val dataset = c map { it.simpleName } sortedBy { it }
     return dataset to dataset.toTypedArray()
 }
+
+fun getActiveToken(char: Char?): Pair<String, Int> {
+    //TODO merge with getCurrentToken
+    val offsets = document.getParagraphOffsets(editorPane.caretPosition)
+    var line = document.getText(offsets.first, offsets.second).replace("\n", "")
+    var i = editorPane.caretPosition - offsets.first - 1 + if (char != null) {
+        line = line.concat(char.toString()); 1
+    } else 0
+    var value = StringBuilder()
+    val method = if (line.get(i).equals('.')) {
+        --i; true
+    } else false
+    while (i >= 0 && line.get(i).isLetterOrDigit()) {
+        value.append(line.get(i--))
+    }
+    val result = value.reverse().toString()
+    return Pair(result, if (method) T_METHOD else if (result.isNotEmpty() && result.get(0).isUpperCase()) T_TYPE else T_VAR)
+}
+
+fun shouldSuggestTypes(): Boolean {
+    var i = editorPane.caretPosition - 1
+    while (i >= 0 && document.getText(i, 1).charAt(0).isLetterOrDigit()) {
+        i -= 1;
+    }
+    return document.getText(i + 1, 1).charAt(0).isUpperCase()
+}
+
+fun shouldSuggestMethods(): Boolean = editorPane.caretPosition != 0 && document.getText(editorPane.caretPosition - 1, 1) == "."

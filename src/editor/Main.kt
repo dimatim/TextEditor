@@ -1,5 +1,6 @@
-import editor.backend.buildClassMap
-import editor.backend.savePath
+package editor
+
+import editor.backend.*
 import editor.visual.*
 import java.awt.*
 import java.awt.event.ActionEvent
@@ -70,31 +71,6 @@ private fun setupDocument(): DefaultStyledDocument {
     return document
 }
 
-/**
- * Used to get methods for the current variable when pressing Ctrl+SPACE on a dot (ex: foo.)
- */
-fun getVarName(): String {
-    //TODO merge with getCurrentToken
-    val offsets = document.getParagraphOffsets(editorPane.caretPosition)
-    val line = document.getText(offsets.first, offsets.second)
-    var i = editorPane.caretPosition - offsets.first - 1
-    var value = StringBuilder()
-    while (i > 0 && line.get(--i).isLetterOrDigit()) {
-        value.append(line.get(i))
-    }
-    return value.reverse().toString()
-}
-
-fun shouldSuggestTypes(): Boolean {
-    var i = editorPane.caretPosition - 1
-    while (i >= 0 && document.getText(i, 1).charAt(0).isLetterOrDigit()) {
-        i -= 1;
-    }
-    return document.getText(i + 1, 1).charAt(0).isUpperCase()
-}
-
-fun shouldSuggestMethods(): Boolean = editorPane.caretPosition != 0 && document.getText(editorPane.caretPosition - 1, 1) == "."
-
 fun setupKeyBindings() {
     fun setBehavior(keyStroke: KeyStroke, func: () -> Unit) {
         editorPane.inputMap.put(keyStroke, object : AbstractAction() {
@@ -104,6 +80,8 @@ fun setupKeyBindings() {
         })
     }
 
+    //FIXME setBehavior(KeyStroke.getKeyStroke("UP"), {if (popupShown) Unit else /*should move caret position UP*/})
+    setBehavior(KeyStroke.getKeyStroke("control SPACE"), ::showPopup)
     setBehavior(KeyStroke.getKeyStroke("control SPACE"), ::showPopup)
     setBehavior(KeyStroke.getKeyStroke("ENTER"), {
         val char = if (suggestionComplete) "" else System.lineSeparator()

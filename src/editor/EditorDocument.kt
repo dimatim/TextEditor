@@ -1,3 +1,5 @@
+package editor
+
 import editor.backend.extractClassInfo
 import editor.backend.isValidType
 import java.util.regex.Matcher
