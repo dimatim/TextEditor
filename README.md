@@ -1,5 +1,5 @@
 # TextEditor
-Text editor with suggestion capabilities (Written in Kotlin)
+Text editor with suggestion capabilities (Uses Kotlin plugin v.0.13.870)
 
 <a href="http://imgur.com/k3dYDTM"><img src="http://i.imgur.com/k3dYDTM.png" title="TextEditor" /></a>
 
