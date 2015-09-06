@@ -7,6 +7,7 @@ import java.util.regex.Pattern
 import javax.swing.text.AttributeSet
 import javax.swing.text.BadLocationException
 import javax.swing.text.DefaultStyledDocument
+import javax.swing.text.Utilities
 
 /**
  * Created by Dima on 22-Aug-15.
@@ -70,16 +71,58 @@ class EditorDocument : DefaultStyledDocument() {
         patternMap forEach { mark(it.value, it.key) }
     }
 
-    fun getCurrentToken(): String {
-        val offsets = document.getParagraphOffsets(editorPane.caretPosition)
-        val line = document.getText(offsets.first, offsets.second)
-        var i = editorPane.caretPosition - offsets.first - 1
-        var value = StringBuilder()
-        while (i >= 0 && line.get(i).isLetterOrDigit()) {
-            value.append(line.get(i))
-            i -= 1
-        }
-        return value.reverse().toString()
+    private fun getToken(startOffset: Int = 0, lengthOffset: Int = 0): String {
+        var start = Utilities.getWordStart(editorPane, editorPane.caretPosition + startOffset)
+        var length = Utilities.getWordEnd(editorPane, editorPane.caretPosition + lengthOffset) - start
+        var token = document.getText(start, length)
+        return (
+                if (token == "." && editorPane.caretPosition == start) ""
+                else if (token == "" || token == ".") token
+                else token.substring(0, editorPane.caretPosition - start)
+                ).replace("\n", "")
     }
+
+    public fun getActiveToken(char: Char? = null): Pair<String, Int> {
+        var token = getToken()
+        if (token == "" && editorPane.caretPosition > 0) {
+            //get previous token
+            token = getToken(-1, -1)
+            if (token.isNotEmpty() && !token.contains('.') && (token.length() > 1 || token.get(0).isJavaLetter()))//if is valid
+                return token to if (token.isNotEmpty() && token.get(0).isUpperCase()) T_TYPE else T_VAR
+        }
+        if (token == ".") {
+            //get preceding token
+            token = getToken(startOffset = -2)
+            return token to T_METHOD
+        } else if (token.contains('.')) {
+            return token to T_METHOD
+        }
+        if (char != null)
+            token = token.concat(char.toString())
+        return token to if (token.isNotEmpty() && token.get(0).isUpperCase()) T_TYPE else T_VAR
+    }
+
+    fun getActiveTokenLength(): Int {
+        val token = getActiveToken().first
+        return if (token.contains('.')) {
+            val (varName, prefix) = token.split(".", limit = 2)
+            return prefix.length
+        } else getActiveToken().first.length()
+    }
+
+    public fun getActiveTokenOffset(): Int {
+        var start = Utilities.getWordStart(editorPane, editorPane.caretPosition)
+        var length = Utilities.getWordEnd(editorPane, editorPane.caretPosition) - start
+        var token = document.getText(start, length).substring(0, editorPane.caretPosition - start)
+        if (token == "" && editorPane.caretPosition > 0) {
+            start = Utilities.getWordStart(editorPane, editorPane.caretPosition - 1)
+            return start
+        } else if (token.contains('.')) {
+            return start + token.indexOfLast { it == '.' }
+        }
+        return start
+    }
+
+    var caretPos = 0
 }
 

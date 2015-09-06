@@ -80,11 +80,9 @@ fun setupKeyBindings() {
         })
     }
 
-    //FIXME setBehavior(KeyStroke.getKeyStroke("UP"), {if (popupShown) Unit else /*should move caret position UP*/})
-    setBehavior(KeyStroke.getKeyStroke("control SPACE"), ::showPopup)
     setBehavior(KeyStroke.getKeyStroke("control SPACE"), ::showPopup)
     setBehavior(KeyStroke.getKeyStroke("ENTER"), {
-        val char = if (suggestionComplete) "" else System.lineSeparator()
+        val char = if (suggestionComplete) "" else "\n"
         document.insertString(editorPane.caretPosition, char, null)
     })
     setBehavior(KeyStroke.getKeyStroke('('), {

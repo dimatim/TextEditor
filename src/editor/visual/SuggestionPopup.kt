@@ -1,7 +1,9 @@
 package editor.visual
 
-import editor.backend.*
 import editor.*
+import editor.backend.getClassForVar
+import editor.backend.getMatchingClasses
+import editor.backend.isValidVar
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Point
@@ -18,6 +20,14 @@ import javax.swing.*
 private var dialog: JDialog? = null
 
 var popupShown = false
+
+private var popupVisible : Boolean
+    set(visible) = run{
+        dialog?.isVisible = visible
+        editorPane.actionMap.get("caret-down").isEnabled =  !visible
+        editorPane.actionMap.get("caret-up").isEnabled =  !visible
+    }
+    get() = dialog?.isVisible?:false
 
 var suggestionComplete: Boolean = false
     get() = if (popupShown) {
@@ -39,8 +49,9 @@ private var currentClassList: Pair<List<String>, Array<String>> = backup
                 if (currentField.first.isNotBlank()) {
                     when (currentField.second) {
                         T_METHOD -> {
-                            if (isValidVar(currentField.first))
-                                getData(getClassForVar(currentField.first))
+                            val (varName, prefix) = currentField.first.split(".", limit = 2)
+                            if (isValidVar(varName))
+                                getData(getClassForVar(varName), prefix)
                             else
                                 Pair(listOf(), arrayOf())
                         }
@@ -59,23 +70,23 @@ val popupKeyListener: KeyListener = object : KeyListener {
     var caretPos: Int = 0
 
     override fun keyPressed(e: KeyEvent?) {
-        if (e?.keyCode == KeyEvent.VK_ESCAPE) dialog?.isVisible = false
-        else if (e?.keyCode == KeyEvent.VK_UP && dialog?.isVisible ?: false) {
+        if (e?.keyCode == KeyEvent.VK_ESCAPE) popupVisible = false
+        else if (e?.keyCode == KeyEvent.VK_UP && popupVisible) {
             list.selectedIndex = if (list.selectedIndex > 0) (list.selectedIndex - 1) else (list.model.size - 1)
             list.ensureIndexIsVisible(list.selectedIndex)
-        } else if (e?.keyCode == KeyEvent.VK_DOWN && dialog?.isVisible ?: false) {
-            list.selectedIndex = if (list.selectedIndex > list.model.size - 1) 0 else (list.selectedIndex + 1)
+        } else if (e?.keyCode == KeyEvent.VK_DOWN && popupVisible) {
+            list.selectedIndex = if (list.selectedIndex >= list.model.size - 1) 0 else (list.selectedIndex + 1)
             list.ensureIndexIsVisible(list.selectedIndex)
-        } else if (e?.keyCode == KeyEvent.VK_ENTER && dialog?.isVisible ?: false) {
+        } else if (e?.keyCode == KeyEvent.VK_ENTER && popupVisible) {
             val completionMatch = listSet.get(list.selectedIndex)
-            document.insertString(editorPane.caretPosition, completionMatch.substring(document.getCurrentToken().length()) /*+ addSpace*/, null)
-            dialog?.isVisible = false
+            document.insertString(editorPane.caretPosition, completionMatch.substring(document.getActiveTokenLength()) /*+ addSpace*/, null)
+            popupVisible = false
         }
         caretPos = editorPane.caretPosition
     }
 
     override fun keyTyped(e: KeyEvent?) {
-        if (dialog?.isVisible ?: false && e?.keyChar?.isLetterOrDigit() ?: false) {
+        if (popupVisible && e?.keyChar?.isLetterOrDigit() ?: false) {
             updatePopup(e?.keyChar)
         }
     }
@@ -86,17 +97,20 @@ val popupKeyListener: KeyListener = object : KeyListener {
             KeyEvent.VK_SPACE,
             KeyEvent.VK_UP,
             KeyEvent.VK_DOWN -> {
-                if (dialog?.isVisible ?: false ) editorPane.caretPosition = caretPos
+                if (popupVisible) editorPane.caretPosition = caretPos
             }
             KeyEvent.VK_LEFT,
-            KeyEvent.VK_RIGHT -> {
-                if (dialog?.isVisible ?: false ) updatePopup()
+            KeyEvent.VK_RIGHT,
+            KeyEvent.VK_BACK_SPACE-> {
+                if (popupVisible) updatePopup()
+                var (start, length) = document.getParagraphOffsets(editorPane.caretPosition)
+                document.caretPos = editorPane.caretPosition - start
+
             }
             else -> {
-                if (dialog?.isVisible ?: false && e?.keyChar?.isLetterOrDigit() ?: false) updatePopup()
+                if (popupVisible && e?.keyChar?.isLetterOrDigit() ?: false) updatePopup()
             }
         }
-        println("caret position = ${editorPane.caretPosition}, ${document.getParagraphOffsets(editorPane.caretPosition)}")
     }
 }
 
@@ -114,7 +128,7 @@ private fun updateList() {
         list.selectedIndex = 0
         list.ensureIndexIsVisible(0)
     }
-    dialog?.isVisible = cl.first.isNotEmpty()
+    popupVisible = cl.first.isNotEmpty()
 }
 
 private fun setupDialog(): JDialog {
@@ -146,7 +160,7 @@ private fun buildContextualMenu(dialog: JDialog): JScrollPane {
 }
 
 fun updatePopup(char: Char? = null) {
-    currentField = getActiveToken(char)
+    currentField = document.getActiveToken(char)
     updateList()
 }
 
@@ -155,9 +169,8 @@ fun showPopup() {
         dialog = setupDialog()
     popupShown = true
     updatePopup()
-    val rectangle = editorPane.modelToView(editorPane.caretPosition)
+    val rectangle = editorPane.modelToView(document.getActiveTokenOffset() + 1)
     dialog?.location = Point(frame.locationOnScreen.x + rectangle.x, frame.locationOnScreen.y + rectangle.y + 75)  //FIXME needs universal coords
-    dialog?.isVisible = true
     dialog?.pack()
 }
 
@@ -167,34 +180,16 @@ private fun mapMethods(c: Class<*>): HashMap<Pair<String, String>, List<String>>
     return data
 }
 
-private fun getData(c: Class<*>): Pair<List<String>, Array<String>> {
+private fun getData(c: Class<*>, prefix: String = ""): Pair<List<String>, Array<String>> {
     val data = mapMethods(c)
-    val dataset = data.toList() map { it.first.first } sortedBy  { it }
-    val methodList = (data map  { it.key.first + it.value.join(separator = ",", prefix = "(", postfix = ") : ") + it.key.second } sortedBy { it }).toTypedArray()
+    val dataset = data.toList() map { it.first.first } sortedBy  { it } filter {it.startsWith(prefix)}
+    val methodList = (data filter {it.key.first.startsWith(prefix)} map  { it.key.first + it.value.join(separator = ",", prefix = "(", postfix = ") : ") + it.key.second } sortedBy { it }).toTypedArray()
     return dataset to methodList
 }
 
 private fun getData(c: List<Class<*>>): Pair<List<String>, Array<String>> {
     val dataset = c map { it.simpleName } sortedBy { it }
     return dataset to dataset.toTypedArray()
-}
-
-fun getActiveToken(char: Char?): Pair<String, Int> {
-    //TODO merge with getCurrentToken
-    val offsets = document.getParagraphOffsets(editorPane.caretPosition)
-    var line = document.getText(offsets.first, offsets.second).replace("\n", "")
-    var i = editorPane.caretPosition - offsets.first - 1 + if (char != null) {
-        line = line.concat(char.toString()); 1
-    } else 0
-    var value = StringBuilder()
-    val method = if (line.get(i).equals('.')) {
-        --i; true
-    } else false
-    while (i >= 0 && line.get(i).isLetterOrDigit()) {
-        value.append(line.get(i--))
-    }
-    val result = value.reverse().toString()
-    return Pair(result, if (method) T_METHOD else if (result.isNotEmpty() && result.get(0).isUpperCase()) T_TYPE else T_VAR)
 }
 
 fun shouldSuggestTypes(): Boolean {

@@ -50,7 +50,7 @@ private fun loadJars(): Array<URL> {
     val folder = File(CONFIG_PATH)
     var matchingFiles: Array<File>
     val urls = arrayListOf<URL>()
-    for (l in folder.readLines(Charsets.UTF_8)) {
+    for (l in folder.readLines("UTF-8")) {
         matchingFiles = File(l).listFiles({ file: File, name: String -> name.contains(".jar") })//TODO problematic - returns null?
         for (f in matchingFiles) {
             urls.add(URL("file:" + f.canonicalPath))
