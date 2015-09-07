@@ -1,9 +1,12 @@
 package editor.visual
 
-import editor.*
-import editor.backend.getClassForVar
 import editor.backend.getMatchingClasses
-import editor.backend.isValidVar
+import editor.document
+import editor.editorPane
+import editor.frame
+import editor.parser.getActiveExpression
+import editor.parser.getActiveTokenLength
+import editor.parser.getActiveTokenOffset
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Point
@@ -38,7 +41,7 @@ var suggestionComplete: Boolean = false
 
 private var backup: Pair<List<String>, Array<String>> = Pair(listOf(), arrayOf())
 
-var currentField: Pair<String, Int> = ("" to 1)
+var currentField: Pair<List<Class<*>>, String> = listOf<Class<*>>() to ""
 
 private var currentClassList: Pair<List<String>, Array<String>> = backup
     get() = if (!popupShown) {
@@ -46,20 +49,14 @@ private var currentClassList: Pair<List<String>, Array<String>> = backup
         backup
     } else {
         backup =
-                if (currentField.first.isNotBlank()) {
-                    when (currentField.second) {
-                        T_METHOD -> {
-                            val (varName, prefix) = currentField.first.split(".", limit = 2)
-                            if (isValidVar(varName))
-                                getData(getClassForVar(varName), prefix)
-                            else
-                                Pair(listOf(), arrayOf())
-                        }
-                        T_TYPE -> getData(getMatchingClasses(currentField.first))
-                        T_VAR -> Pair<List<String>, Array<String>>(listOf(), arrayOf())//TODO var suggestion
-                        else -> Pair<List<String>, Array<String>>(listOf(), arrayOf())
-                    }
-                } else Pair<List<String>, Array<String>>(listOf(), arrayOf())
+                if (currentField.first.isNotEmpty()) {
+                    if (currentField.second.isNotEmpty())
+                        getData(currentField.first.get(0), currentField.second)
+                    else
+                        getData(currentField.first.get(0), "")
+                } else if (currentField.second.isNotEmpty())
+                    getData(getMatchingClasses(currentField.second))
+                else Pair<List<String>, Array<String>>(listOf(), arrayOf())
         backup
     }
 
@@ -79,7 +76,7 @@ val popupKeyListener: KeyListener = object : KeyListener {
             list.ensureIndexIsVisible(list.selectedIndex)
         } else if (e?.keyCode == KeyEvent.VK_ENTER && popupVisible) {
             val completionMatch = listSet.get(list.selectedIndex)
-            document.insertString(editorPane.caretPosition, completionMatch.substring(document.getActiveTokenLength()) /*+ addSpace*/, null)
+            document.insertString(editorPane.caretPosition, completionMatch.substring(getActiveTokenLength()) /*+ addSpace*/, null)
             popupVisible = false
         }
         caretPos = editorPane.caretPosition
@@ -103,9 +100,6 @@ val popupKeyListener: KeyListener = object : KeyListener {
             KeyEvent.VK_RIGHT,
             KeyEvent.VK_BACK_SPACE-> {
                 if (popupVisible) updatePopup()
-                var (start, length) = document.getParagraphOffsets(editorPane.caretPosition)
-                document.caretPos = editorPane.caretPosition - start
-
             }
             else -> {
                 if (popupVisible && e?.keyChar?.isLetterOrDigit() ?: false) updatePopup()
@@ -160,7 +154,7 @@ private fun buildContextualMenu(dialog: JDialog): JScrollPane {
 }
 
 fun updatePopup(char: Char? = null) {
-    currentField = document.getActiveToken(char)
+    currentField = getActiveExpression(char)
     updateList()
 }
 
@@ -169,7 +163,7 @@ fun showPopup() {
         dialog = setupDialog()
     popupShown = true
     updatePopup()
-    val rectangle = editorPane.modelToView(document.getActiveTokenOffset() + 1)
+    val rectangle = editorPane.modelToView(getActiveTokenOffset() + 1)
     dialog?.location = Point(frame.locationOnScreen.x + rectangle.x, frame.locationOnScreen.y + rectangle.y + 75)  //FIXME needs universal coords
     dialog?.pack()
 }

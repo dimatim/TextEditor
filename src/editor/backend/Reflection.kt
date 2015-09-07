@@ -13,6 +13,7 @@ import java.util.regex.Pattern
  * Created by Dima on 19-Aug-15.
  */
 val variableMap = HashMap<String, Class<*>?>()
+val uVariableMap = HashMap<String, Class<*>?>()
 val classMap = HashMap<String, Class<*>>()
 
 val ACC_PUBLIC = 0x0001//     Declared public; may be accessed from outside its package.
@@ -25,12 +26,52 @@ val ACC_ANNOTATION = 0x2000//	Declared as an annotation type.
 val ACC_ENUM = 0x4000//	Declared as an enum type.
 
 fun extractClassInfo(string: String) {
-    val pattern = Pattern.compile("""\w+ *: *\w+""")
+    val pattern = Pattern.compile("""\w+ *: *[A-Z]\w+""")
     val matcher = pattern.matcher(string)
     while (matcher.find()) {
         val result = matcher.group().split(":")
         variableMap.put(result[0].trim(), classMap.get(result[1].trim()))
     }
+    extractPartialClassInfo(string)
+}
+
+fun extractPartialClassInfo(string: String) {
+    val pattern = Pattern.compile("""\w+ *= *\w+.*""")
+    val matcher = pattern.matcher(string)
+    while (matcher.find()) {
+        val result = matcher.group().split("=")
+        variableMap.put(result[0].trim(), resolveType(result[1].trim())?.get(0))
+    }
+    //variableMap.forEach { println("${it.getKey()} - ${it.getValue()}") }
+}
+
+fun resolveType(string: String): List<Class<*>>? {
+    val split = string.split(".")
+    if (split.size >= 2) {
+        var cclass: Class<*> = Unit.javaClass
+        for (i in split.indices) {
+            if (i > 0)
+                if (i == 1) {
+                    if (split[i].contains('(')) {
+                        cclass = resolveMethodType(getClassForVar(split[0]), split[1])
+                    } else if (split[i].isEmpty())
+                        cclass = getClassForVar(split[0])
+                } else {
+                    if (split[i].contains('(')) {
+                        cclass = resolveMethodType(cclass, split[i])
+                    }
+                }
+        }
+        return listOf(cclass)
+    } else if (!string.contains('.') && string.isNotEmpty()) return getMatchingClasses(string.trim())
+    return null
+}
+
+fun resolveMethodType(cls: Class<*>, string: String): Class<*> {
+    val bracketIndex = string.indexOfFirst { it == '(' }
+    val name = string.substring(0, bracketIndex)
+    return (cls.methods first { it.name == name }).returnType
+    //println("name = $name paramString = $paramString")
 }
 
 fun buildClassMap() {
