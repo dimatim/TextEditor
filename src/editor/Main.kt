@@ -71,6 +71,14 @@ private fun setupDocument(): DefaultStyledDocument {
     return document
 }
 
+fun javaSyntax() {
+    document.setLanguage(JAVA)
+}
+
+fun kotlinSyntax() {
+    document.setLanguage(KOTLIN)
+}
+
 fun setupKeyBindings() {
     fun setBehavior(keyStroke: KeyStroke, func: () -> Unit) {
         editorPane.inputMap.put(keyStroke, object : AbstractAction() {

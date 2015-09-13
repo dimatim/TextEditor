@@ -1,11 +1,10 @@
 package editor.visual
 
-import editor.backend.getMatchingClasses
 import editor.document
 import editor.editorPane
 import editor.frame
+import editor.parser.emptySuggestion
 import editor.parser.getActiveExpression
-import editor.parser.getActiveTokenLength
 import editor.parser.getActiveTokenOffset
 import java.awt.BorderLayout
 import java.awt.Dimension
@@ -14,6 +13,8 @@ import java.awt.event.FocusEvent
 import java.awt.event.FocusListener
 import java.awt.event.KeyEvent
 import java.awt.event.KeyListener
+import java.lang.reflect.GenericDeclaration
+import java.lang.reflect.Method
 import java.util.*
 import javax.swing.*
 
@@ -41,7 +42,7 @@ var suggestionComplete: Boolean = false
 
 private var backup: Pair<List<String>, Array<String>> = Pair(listOf(), arrayOf())
 
-var currentField: Pair<List<Class<*>>, String> = listOf<Class<*>>() to ""
+var currentField: Pair<List<GenericDeclaration>, String> = emptySuggestion
 
 private var currentClassList: Pair<List<String>, Array<String>> = backup
     get() = if (!popupShown) {
@@ -49,14 +50,12 @@ private var currentClassList: Pair<List<String>, Array<String>> = backup
         backup
     } else {
         backup =
-                if (currentField.first.isNotEmpty()) {
-                    if (currentField.second.isNotEmpty())
-                        getData(currentField.first.get(0), currentField.second)
-                    else
-                        getData(currentField.first.get(0), "")
-                } else if (currentField.second.isNotEmpty())
-                    getData(getMatchingClasses(currentField.second))
-                else Pair<List<String>, Array<String>>(listOf(), arrayOf())
+                if (currentField.first.isNotEmpty() && currentField.first.get(0) is Method) {
+                    getMethods(currentField.first as List<Method>)
+                } else if (currentField.first.isNotEmpty() && currentField.first.get(0) is Class<*>)
+                    getClasses(currentField.first as List<Class<*>>)
+                else
+                    Pair(listOf(), arrayOf())
         backup
     }
 
@@ -76,7 +75,7 @@ val popupKeyListener: KeyListener = object : KeyListener {
             list.ensureIndexIsVisible(list.selectedIndex)
         } else if (e?.keyCode == KeyEvent.VK_ENTER && popupVisible) {
             val completionMatch = listSet.get(list.selectedIndex)
-            document.insertString(editorPane.caretPosition, completionMatch.substring(getActiveTokenLength()) /*+ addSpace*/, null)
+            document.insertString(editorPane.caretPosition, completionMatch.substring(currentField.second.size) /*+ addSpace*/, null)
             popupVisible = false
         }
         caretPos = editorPane.caretPosition
@@ -168,20 +167,20 @@ fun showPopup() {
     dialog?.pack()
 }
 
-private fun mapMethods(c: Class<*>): HashMap<Pair<String, String>, List<String>> {
+private fun mapMethods(m: List<Method>): HashMap<Pair<String, String>, List<String>> {
     val data = HashMap<Pair<String, String>, List<String>>()
-    c.methods forEach { data.put(Pair(it.name, it.returnType.simpleName), it.parameterTypes map { it.simpleName }) }
+    m forEach { data.put(Pair(it.name, it.returnType.simpleName), it.parameterTypes map { it.simpleName }) }
     return data
 }
 
-private fun getData(c: Class<*>, prefix: String = ""): Pair<List<String>, Array<String>> {
-    val data = mapMethods(c)
-    val dataset = data.toList() map { it.first.first } sortedBy  { it } filter {it.startsWith(prefix)}
-    val methodList = (data filter {it.key.first.startsWith(prefix)} map  { it.key.first + it.value.join(separator = ",", prefix = "(", postfix = ") : ") + it.key.second } sortedBy { it }).toTypedArray()
+private fun getMethods(m: List<Method>): Pair<List<String>, Array<String>> {
+    val data = mapMethods(m)
+    val dataset = data.toList() map { it.first.first } sortedBy  { it }
+    val methodList = (data map  { it.key.first + it.value.join(separator = ",", prefix = "(", postfix = ") : ") + it.key.second } sortedBy { it }).toTypedArray()
     return dataset to methodList
 }
 
-private fun getData(c: List<Class<*>>): Pair<List<String>, Array<String>> {
+private fun getClasses(c: List<Class<*>>): Pair<List<String>, Array<String>> {
     val dataset = c map { it.simpleName } sortedBy { it }
     return dataset to dataset.toTypedArray()
 }

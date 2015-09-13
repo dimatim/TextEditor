@@ -1,7 +1,7 @@
 package editor
 
+import editor.backend.clearClassInfo
 import editor.backend.extractClassInfo
-import editor.backend.isValidType
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import javax.swing.text.AttributeSet
@@ -31,6 +31,13 @@ class EditorDocument : DefaultStyledDocument() {
         applyStyles(offsets.first, offsets.second)
     }
 
+    public fun setLanguage(langId: Int) {
+        SYNTAX = langId
+        clearClassInfo()
+        extractClassInfo(getText(0, document.length))
+        applyStyles(0, document.length)
+    }
+
     private fun applyStyles(offset: Int, str: String) {
         applyStyles(offset, str.length())
     }
@@ -56,14 +63,14 @@ class EditorDocument : DefaultStyledDocument() {
             matcher = pattern.matcher(content)
             while (matcher.find()) {
                 var off = 0;
-                if (type.equals(H_ERROR)) {
+                /*if (type.equals(H_ERROR)) {
                     val result = matcher.group().split(":")
                     if (!isValidType(result[1].trim()))
                         off = result[0].length() + 1
                     else continue
                 } else if (type.equals(H_FUN_NAME)) {
                     off = 4
-                }
+                }*/
                 setCharacterAttributes(start + matcher.start() + off, matcher.end() - matcher.start() - off, getStyle(type), false)
             }
         }

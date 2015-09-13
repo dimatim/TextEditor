@@ -1,6 +1,7 @@
 package editor.visual
 
 import editor.backend.*
+import editor.*
 import java.awt.Dimension
 import java.awt.event.ActionEvent
 import javax.swing.JMenu
@@ -14,6 +15,7 @@ fun buildMenuBar(): JMenuBar {
     val bar = JMenuBar()
     bar.add(setupMenu("File", mapOf("New" to ::newFile, "Open" to ::openFile, "Save" to ::saveFile)))
     bar.add(setupMenu("Build", mapOf("Build & Restart" to ::buildRestart)))
+    bar.add(setupMenu("Syntax", mapOf("Java" to ::javaSyntax, "Kotlin" to ::kotlinSyntax)))
     return bar
 }
 

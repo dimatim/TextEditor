@@ -1,6 +1,11 @@
 package editor.backend
 
 import editor.CONFIG_PATH
+import editor.JAVA
+import editor.KOTLIN
+import editor.SYNTAX
+import editor.parser.extractInfo
+import editor.parser.extractType
 import org.reflections.Reflections
 import org.reflections.scanners.SubTypesScanner
 import java.io.File
@@ -25,7 +30,26 @@ val ACC_SYNTHETIC = 0x1000//	Declared synthetic; not present in the source code.
 val ACC_ANNOTATION = 0x2000//	Declared as an annotation type.
 val ACC_ENUM = 0x4000//	Declared as an enum type.
 
+fun clearClassInfo(): Unit = variableMap.clear()
+
 fun extractClassInfo(string: String) {
+    when (SYNTAX) {
+        JAVA -> extractJClassInfo(string)
+        KOTLIN -> extractKClassInfo(string)
+    }
+}
+
+fun extractJClassInfo(string: String) {
+    val pattern = Pattern.compile("""\w+ *\w+ *=""")
+    val matcher = pattern.matcher(string)
+    while (matcher.find()) {
+        val temp = matcher.group().dropLast(1).trim()
+        val result = temp.split(" ")
+        variableMap.put(result[result.size - 1].trim(), classMap.get(result[0].trim()))
+    }
+}
+
+fun extractKClassInfo(string: String) {
     val pattern = Pattern.compile("""\w+ *: *[A-Z]\w+""")
     val matcher = pattern.matcher(string)
     while (matcher.find()) {
@@ -40,38 +64,8 @@ fun extractPartialClassInfo(string: String) {
     val matcher = pattern.matcher(string)
     while (matcher.find()) {
         val result = matcher.group().split("=")
-        variableMap.put(result[0].trim(), resolveType(result[1].trim())?.get(0))
+        variableMap.put(result[0].trim(), extractType(result[1].trim()))
     }
-    //variableMap.forEach { println("${it.getKey()} - ${it.getValue()}") }
-}
-
-fun resolveType(string: String): List<Class<*>>? {
-    val split = string.split(".")
-    if (split.size >= 2) {
-        var cclass: Class<*> = Unit.javaClass
-        for (i in split.indices) {
-            if (i > 0)
-                if (i == 1) {
-                    if (split[i].contains('(')) {
-                        cclass = resolveMethodType(getClassForVar(split[0]), split[1])
-                    } else if (split[i].isEmpty())
-                        cclass = getClassForVar(split[0])
-                } else {
-                    if (split[i].contains('(')) {
-                        cclass = resolveMethodType(cclass, split[i])
-                    }
-                }
-        }
-        return listOf(cclass)
-    } else if (!string.contains('.') && string.isNotEmpty()) return getMatchingClasses(string.trim())
-    return null
-}
-
-fun resolveMethodType(cls: Class<*>, string: String): Class<*> {
-    val bracketIndex = string.indexOfFirst { it == '(' }
-    val name = string.substring(0, bracketIndex)
-    return (cls.methods first { it.name == name }).returnType
-    //println("name = $name paramString = $paramString")
 }
 
 fun buildClassMap() {
@@ -102,7 +96,9 @@ private fun loadJars(): Array<URL> {
     return urls.toTypedArray()
 }
 
-fun getClassForVar(variable: String): Class<*> = variableMap.get(variable) ?: Any::class.java
+fun getClassForVar(variable: String): Class<*>? = variableMap.get(variable)
+
+fun getClassForType(type: String): Class<*>? = classMap.get(type)
 
 fun getMatchingClasses(prefix: String): List<Class<*>> = classMap.filterKeys { it.startsWith(prefix) } map { it.getValue() }
 
