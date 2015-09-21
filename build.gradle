@@ -1,0 +1,32 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:0.13.1513'
+    }
+}
+
+apply plugin: "kotlin" // or apply plugin: "kotlin2js" if targeting JavaScript
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.jetbrains.kotlin:kotlin-stdlib:0.13.1513'
+    compile 'org.reflections:reflections:0.9.10'
+}
+sourceSets {
+    main.kotlin.srcDirs += 'src/main/kotlin'
+    //main.java.srcDirs += 'src/main/myJava'
+}
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Main-Class': 'editor.EditorPackage'
+    }
+    baseName = project.name
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
