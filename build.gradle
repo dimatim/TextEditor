@@ -22,7 +22,7 @@ sourceSets {
     //main.java.srcDirs += 'src/main/myJava'
 }
 
-task fatJar(type: Jar) {
+task buildTextEditor(type: Jar) {
     manifest {
         attributes 'Main-Class': 'editor.EditorPackage'
     }
