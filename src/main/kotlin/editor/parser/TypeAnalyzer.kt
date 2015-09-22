@@ -85,8 +85,10 @@ private fun getSuggestions(node: Node): Pair<List<GenericDeclaration>, String> {
         return (cls.methods filter {it.name.startsWith(node.children.last().simpleName)}).toList() to node.children.last().simpleName
     } else if (node.children.first().simpleName.isBlank())
         return emptySuggestion
-    else
-        return getMatchingClasses(node.children.first().simpleName) to node.children.first().simpleName
+    else {
+        val token = node.children.get(0).simpleName.split(' ').last()
+        return getMatchingClasses(token) to token
+    }
 }
 
 private fun getClassForNode(node: Node): Class<*>? {

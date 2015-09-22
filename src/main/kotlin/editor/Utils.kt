@@ -38,7 +38,7 @@ val H_PUNCTUATION = "punctuation"
 val H_NUMBERS = "numbers"
 val H_FUN_NAME = "fun name"
 
-private val keywords: Array<String>
+val keywords: Array<String>
     get() = when (SYNTAX) {
         JAVA -> arrayOf(
                 "private", "protected", "public",

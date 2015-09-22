@@ -3,9 +3,7 @@ package editor.visual
 import editor.document
 import editor.editorPane
 import editor.frame
-import editor.parser.emptySuggestion
-import editor.parser.getActiveExpression
-import editor.parser.getActiveTokenOffset
+import editor.parser.*
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Point
@@ -40,23 +38,21 @@ var suggestionComplete: Boolean = false
         true
     } else false
 
-private var backup: Pair<List<String>, Array<String>> = Pair(listOf(), arrayOf())
-
 var currentField: Pair<List<GenericDeclaration>, String> = emptySuggestion
 
-private var currentClassList: Pair<List<String>, Array<String>> = backup
+private var backup: Pair<List<String>, Array<String>> = Pair(listOf(), arrayOf())
+    get() = getMatchingKeywords()
+
+private var currentClassList: Pair<List<String>, Array<String>> = Pair(listOf(), arrayOf())
     get() = if (!popupShown) {
-        backup = Pair(listOf(), arrayOf())
-        backup
+        Pair(listOf(), arrayOf())
     } else {
-        backup =
-                if (currentField.first.isNotEmpty() && currentField.first.get(0) is Method) {
-                    getMethods(currentField.first as List<Method>)
-                } else if (currentField.first.isNotEmpty() && currentField.first.get(0) is Class<*>)
-                    getClasses(currentField.first as List<Class<*>>)
-                else
-                    Pair(listOf(), arrayOf())
-        backup
+        if (currentField.first.isNotEmpty() && currentField.first.get(0) is Method) {
+            getMethods(currentField.first as List<Method>)
+        } else if (currentField.first.isNotEmpty() && currentField.first.get(0) is Class<*>)
+            getClasses(currentField.first as List<Class<*>>)
+        else
+            Pair(listOf(), arrayOf())
     }
 
 private var addSpace: String = ""
@@ -75,7 +71,7 @@ val popupKeyListener: KeyListener = object : KeyListener {
             list.ensureIndexIsVisible(list.selectedIndex)
         } else if (e?.keyCode == KeyEvent.VK_ENTER && popupVisible) {
             val completionMatch = listSet.get(list.selectedIndex)
-            document.insertString(editorPane.caretPosition, completionMatch.substring(currentField.second.size) /*+ addSpace*/, null)
+            document.insertString(editorPane.caretPosition, completionMatch.substring(currentField.second.length()) /*+ addSpace*/, null)
             popupVisible = false
         }
         caretPos = editorPane.caretPosition
@@ -113,15 +109,20 @@ private var list = JList(listModel)
 
 private fun updateList() {
     val cl = currentClassList
+    val back = backup
+    val addKeywords = back.first.isNotEmpty() && (getActiveToken().isBlank() || cl.first.isEmpty())
+    var dataSet = if (addKeywords) back.first else listOf()
+    var listArr = if (addKeywords) back.second else arrayOf()
     if (cl.first.isNotEmpty()) {
-        val (dataSet, listArr) = cl
-        listModel.clear()
-        listArr forEach { listModel.addElement(it) }
-        listSet = dataSet
-        list.selectedIndex = 0
-        list.ensureIndexIsVisible(0)
+        dataSet = cl.first
+        listArr = cl.second
     }
-    popupVisible = cl.first.isNotEmpty()
+    listModel.clear()
+    listArr forEach { listModel.addElement(it) }
+    listSet = dataSet
+    list.selectedIndex = 0
+    list.ensureIndexIsVisible(0)
+    popupVisible = dataSet.isNotEmpty()
 }
 
 private fun setupDialog(): JDialog {
@@ -153,7 +154,12 @@ private fun buildContextualMenu(dialog: JDialog): JScrollPane {
 }
 
 fun updatePopup(char: Char? = null) {
-    currentField = getActiveExpression(char)
+    val context = getCaretContext()
+    currentField = when (context) {
+        CLASS,
+        METHOD -> getActiveExpression(char)
+        else -> listOf<GenericDeclaration>() to getActiveToken()
+    }
     updateList()
 }
 
