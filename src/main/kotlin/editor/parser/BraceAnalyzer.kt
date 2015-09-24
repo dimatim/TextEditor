@@ -1,14 +1,25 @@
 package editor.parser
 
-import editor.*
-
 /**
  * Created by Dima on 21-Sep-15.
  */
 
-var braceCount = 0
+
+fun getOpenBraces(s:String): Int {
+    var braceCount = 0
+    var index = 0
+    while (index < s.length()) {
+        if (s.get(index) == '{') {
+            braceCount++
+        } else if (s.get(index) == '}')
+            if (braceCount > 0) braceCount--
+        index++
+    }
+    return braceCount
+}
 
 fun extractEnclosingContext(s: String): List<String> {
+    var braceCount = 0
     val tokens = arrayListOf<String>()
     var index = s.length() - 1
     while (index >= 0) {

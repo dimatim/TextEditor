@@ -1,6 +1,7 @@
 package editor
 
 import editor.backend.*
+import editor.parser.getNewLineOffset
 import editor.visual.*
 import java.awt.*
 import java.awt.event.ActionEvent
@@ -89,15 +90,30 @@ fun setupKeyBindings() {
     }
 
     setBehavior(KeyStroke.getKeyStroke("control SPACE"), ::showPopup)
-    setBehavior(KeyStroke.getKeyStroke("ENTER"), {
-        val char = if (suggestionComplete) "" else "\n"
-        document.insertString(editorPane.caretPosition, char, null)
-    })
+    setBehavior(KeyStroke.getKeyStroke('}'), ::adjustCaret)
+    setBehavior(KeyStroke.getKeyStroke("ENTER"), ::adjustNewline)
     setBehavior(KeyStroke.getKeyStroke('('), {
         document.insertString(editorPane.caretPosition, "()", null)
         --editorPane.caretPosition
     })
     editorPane.addKeyListener(popupKeyListener)
+}
+
+fun adjustCaret() {
+    val (s, l) = document.getParagraphOffsets(editorPane.caretPosition)
+    val sequence = if (document.getText(s, l).isBlank()) {
+        document.remove(s, l - 1)
+        getNewLineOffset("}") + "}"
+    } else "}"
+    document.insertString(editorPane.caretPosition, sequence, null)
+}
+
+fun adjustNewline() {
+    /*val (s, l) = document.getParagraphOffsets(editorPane.caretPosition)
+    val nextChar = document.getText(editorPane.caretPosition, l - editorPane.caretPosition)*/
+    val nextChar = document.getText(editorPane.caretPosition, 1)//TODO paragraph string to the right of caret
+    val sequence = if (suggestionComplete) "" else ("\n" + getNewLineOffset(nextChar))
+    document.insertString(editorPane.caretPosition, sequence, null)
 }
 
 fun generateStyles(pn: text.DefaultStyledDocument, map: Map<String, Color>) {

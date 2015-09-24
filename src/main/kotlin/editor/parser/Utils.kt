@@ -21,6 +21,18 @@ fun getMatchingKeywords(): Pair<List<String>, Array<String>> {
     return kw to kw.toTypedArray()
 }
 
+fun getNewLineOffset(char: String? = null): String {
+    var s = document.getText(0, editorPane.caretPosition)
+    if (char != null)
+        s = s.concat(char.toString())
+    val tab = "    "
+    val open = getOpenBraces(s)
+    val sb = StringBuilder()
+    for (i in 1..open)
+        sb.append(tab)
+    return sb.toString()
+}
+
 fun getCaretContext(): Int {
     val s = document.getText(0, editorPane.caretPosition)
     var list = extractEnclosingContext(s)
