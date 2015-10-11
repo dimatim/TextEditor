@@ -16,9 +16,11 @@ repositories {
 dependencies {
     compile 'org.jetbrains.kotlin:kotlin-stdlib:0.13.1513'
     compile 'org.reflections:reflections:0.9.10'
+    testCompile 'junit:junit:4.12'
 }
 sourceSets {
     main.kotlin.srcDirs += 'src/main/kotlin'
+    test.kotlin.srcDirs += 'src/main/test'
     //main.java.srcDirs += 'src/main/myJava'
 }
 
